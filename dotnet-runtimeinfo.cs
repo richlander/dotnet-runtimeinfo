@@ -1,17 +1,35 @@
 #!/usr/bin/env dotnet
-#:property PackAsTool=true
-#:property EnableSourceLink=true
 #:package Microsoft.SourceLink.GitHub@*
-#:package Spectre.Console@*
+#:property Authors=Rich Lander
+#:property Description=A neofetch-like tool for .NET metrics
+#:property PackageId=dotnet-runtimeinfo
+#:property PackageLicenseExpression=MIT
+#:property PackageReadmeFile=README.md
+#:property PublishRepositoryUrl=true
+#:property PackAsTool=true
+#:property RollForward=LatestMajor
+#:property TargetFramework=net10.0
+#:property ToolCommandName=dotnet-runtimeinfo
+#:property VersionPrefix=2.0.0
 
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Runtime.InteropServices;
-using Spectre.Console;
 
 const double Mebi = 1024 * 1024;
 const double Gibi = Mebi * 1024;
+
+// ANSI color codes
+const string Purple = "\e[35m";
+const string White = "\e[37m";
+const string Grey = "\e[90m";
+const string Bold = "\e[1m";
+const string BoldPurple = "\e[1;35m";
+const string Reset = "\e[0m";
+const string Red = "\e[31m";
+const string Yellow = "\e[33m";
+const string Green = "\e[32m";
 
 // Parse arguments
 var cmdArgs = Environment.GetCommandLineArgs().Skip(1).ToArray();
@@ -20,174 +38,140 @@ var logoStyle = cmdArgs.Length > 0 ? cmdArgs[0] : "dotnetbot";
 var gcInfo = GC.GetGCMemoryInfo();
 var totalMemoryBytes = gcInfo.TotalAvailableMemoryBytes;
 
-// Logo options
-var logos = new Dictionary<string, string>
+// Logo options (using ANSI codes)
+var logos = new Dictionary<string, string[]>
 {
-    ["ascii"] = """
-        [purple]     _    _ _____  _____[/]
-        [purple]    | \\ | | ____||_   _|[/]
-        [purple]    |  \\| |  _|    | |[/]
-        [purple]    | |\\  | |___   | |[/]
-        [purple]|\| |_| \\_|_____|  |_|[/]
-        """,
+    ["ascii"] = [
+        $"{Purple}     _    _ _____  _____ {Reset}",
+        $"{Purple}    | \\ | | ____||_   _|{Reset}",
+        $"{Purple}    |  \\| |  _|    | |  {Reset}",
+        $"{Purple}    | |\\  | |___   | |  {Reset}",
+        $"{Purple}|\\| |_| \\_|_____|  |_|  {Reset}",
+    ],
 
-    ["blocktext"] = """
-        [purple]     ███  ██ ██████ ████████[/]
-        [purple]     ████ ██ ██        ██[/]
-        [purple]     ██ ████ ██████    ██[/]
-        [purple]████ ██  ███ ██        ██[/]
-        [purple]████ ██   ██ ██████    ██[/]
-        """,
+    ["blocktext"] = [
+        $"{Purple}     ███  ██ ██████ ████████{Reset}",
+        $"{Purple}     ████ ██ ██        ██   {Reset}",
+        $"{Purple}     ██ ████ ██████    ██   {Reset}",
+        $"{Purple} ███ ██  ███ ██        ██   {Reset}",
+        $"{Purple} ███ ██   ██ ██████    ██   {Reset}",
+    ],
 
-    ["dotnetbot"] = """
-        [purple]             dNd[/]
-        [purple]             dNd[/]
-        [purple]         .dNNNNNNd.[/]
-        [purple]       dNNNNNNNNNNNNd[/]
-        [purple]      dNNNNNNNNNNNNNNNd[/]
-        [purple]     dNNN[/][white].----------.[/][purple]NNNd[/]
-        [purple]     dNNN[/][white]|   ()   ()|[/][purple]NNNd[/]
-        [purple]     dNNN[/][white]'----------'[/][purple]NNNd[/]
-        [purple]       dNNNNd    dNNNNd[/]
-        [purple]        dNd [/][grey]|.NET|[/][purple] dNd[/]
-        [purple]        dNd [/][grey]|    |[/][purple] dNd[/]
-        [grey]            '----'[/]
-        """
+    ["dotnetbot"] = [
+        $"{Purple}             dNd{Reset}",
+        $"{Purple}             dNd{Reset}",
+        $"{Purple}         .dNNNNNNd.{Reset}",
+        $"{Purple}       dNNNNNNNNNNNNd{Reset}",
+        $"{Purple}      dNNNNNNNNNNNNNNNd{Reset}",
+        $"{Purple}     dNNN{Reset}{White}.----------.{Reset}{Purple}NNNd{Reset}",
+        $"{Purple}     dNNN{Reset}{White}|   ()   ()|{Reset}{Purple}NNNd{Reset}",
+        $"{Purple}     dNNN{Reset}{White}'----------'{Reset}{Purple}NNNd{Reset}",
+        $"{Purple}       dNNNNd    dNNNNd{Reset}",
+        $"{Purple}        dNd {Reset}{Grey}|.NET|{Reset}{Purple} dNd{Reset}",
+        $"{Purple}        dNd {Reset}{Grey}|    |{Reset}{Purple} dNd{Reset}",
+        $"{Grey}            '----'{Reset}",
+    ]
 };
-
-// Animated dotnetbot frames (eyes: left, center, right)
-string[] dotnetbotFrames = [
-    // Looking left
-    """
-    [purple]              dNd[/]
-    [purple]              dNd[/]
-    [purple]          .dNNNNNNd.[/]
-    [purple]        dNNNNNNNNNNNNd[/]
-    [purple]       dNNNNNNNNNNNNNNNd[/]
-    [purple]      dNNN[/][grey].-----------.NNNd[/]
-    [purple]      dNNN[/][grey]|()     ()  |NNNd[/]
-    [purple]      dNNN[/][grey]'-----------'NNNd[/]
-    [purple]        dNNNNd    dNNNNd[/]
-    [purple]         dNd [/][grey]|.NET|[/][purple] dNd[/]
-    [purple]         dNd [/][grey]|    |[/][purple] dNd[/]
-    [grey]             '----'[/]
-    """,
-    // Looking center
-    """
-    [purple]              dNd[/]
-    [purple]              dNd[/]
-    [purple]          .dNNNNNNd.[/]
-    [purple]        dNNNNNNNNNNNNd[/]
-    [purple]       dNNNNNNNNNNNNNNNd[/]
-    [purple]      dNNN[/][grey].-----------.NNNd[/]
-    [purple]      dNNN[/][grey]|  ()   ()  |NNNd[/]
-    [purple]      dNNN[/][grey]'-----------'NNNd[/]
-    [purple]        dNNNNd    dNNNNd[/]
-    [purple]         dNd [/][grey]|.NET|[/][purple] dNd[/]
-    [purple]         dNd [/][grey]|    |[/][purple] dNd[/]
-    [grey]             '----'[/]
-    """,
-    // Looking right
-    """
-    [purple]              dNd[/]
-    [purple]              dNd[/]
-    [purple]          .dNNNNNNd.[/]
-    [purple]        dNNNNNNNNNNNNd[/]
-    [purple]       dNNNNNNNNNNNNNNNd[/]
-    [purple]      dNNN[/][grey].-----------.NNNd[/]
-    [purple]      dNNN[/][grey]|   ()     ()|NNNd[/]
-    [purple]      dNNN[/][grey]'-----------'NNNd[/]
-    [purple]        dNNNNd    dNNNNd[/]
-    [purple]         dNd [/][grey]|.NET|[/][purple] dNd[/]
-    [purple]         dNd [/][grey]|    |[/][purple] dNd[/]
-    [grey]             '----'[/]
-    """
-];
 
 // Select logo or show help
 if (logoStyle == "help" || logoStyle == "--help" || logoStyle == "-h")
 {
-    AnsiConsole.MarkupLine("[bold]Usage:[/] dotnet-runtimeinfo [[logo-style]]");
-    AnsiConsole.MarkupLine("");
-    AnsiConsole.MarkupLine("[bold]Logo styles:[/]");
-    AnsiConsole.MarkupLine("  dotnetbot - .NET Bot mascot (default)");
-    AnsiConsole.MarkupLine("  animated  - .NET Bot with eye animation");
-    AnsiConsole.MarkupLine("  ascii     - .NET logo with ASCII art");
-    AnsiConsole.MarkupLine("  blocktext - Block style .NET logo");
+    Console.WriteLine($"{Bold}Usage:{Reset} dotnet runtimeinfo [logo-style]");
+    Console.WriteLine();
+    Console.WriteLine($"{Bold}Logo styles:{Reset}");
+    Console.WriteLine("  dotnetbot - .NET Bot mascot (default)");
+    Console.WriteLine("  animated  - .NET Bot with eye animation");
+    Console.WriteLine("  ascii     - .NET logo with ASCII art");
+    Console.WriteLine("  blocktext - Block style .NET logo");
     return 0;
+}
+
+// Build info lines (shared between static and animated)
+var infoLines = new List<string>
+{
+    $"{BoldPurple}{Environment.UserName}{Reset}@{BoldPurple}{Dns.GetHostName()}{Reset}",
+    new string('─', 40),
+    $"{Bold}.NET{Reset}: {GetDotnetVersion()}",
+    $"{Bold}.NET SDK{Reset}: {GetDotnetSdkVersion()}",
+    $"{Bold}Runtimes{Reset}: {CountDotnetRuntimes()}",
+    $"{Bold}SDKs{Reset}: {CountDotnetSdks()}",
+    "",
+    $"{Bold}OS{Reset}: {RuntimeInformation.OSDescription}",
+    $"{Bold}Arch{Reset}: {RuntimeInformation.OSArchitecture}",
+    $"{Bold}CPU{Reset}: {Environment.ProcessorCount} cores",
+    $"{Bold}Memory{Reset}: {GetInBestUnit(totalMemoryBytes)}",
+};
+
+// Add cgroup info if available
+if (OperatingSystem.IsLinux() && TryGetMemoryLimits(out long memoryLimit, out long currentMemory, out string? limitPath))
+{
+    infoLines.Add($"{Bold}Container{Reset}: Yes");
+    infoLines.Add($"{Bold}Memory Limit{Reset}: {GetInBestUnit(memoryLimit)}");
+    infoLines.Add($"{Bold}Memory Used{Reset}: {GetInBestUnit(currentMemory)}");
+
+    // Memory bar
+    var percentage = (double)currentMemory / memoryLimit * 100;
+    var barLength = 20;
+    var filled = (int)(percentage / 100 * barLength);
+    var bar = new string('█', filled) + new string('░', barLength - filled);
+    var color = percentage > 80 ? Red : percentage > 60 ? Yellow : Green;
+    infoLines.Add($"{Bold}Usage{Reset}: {color}{bar}{Reset} {percentage:F1}%");
 }
 
 // Handle animated dotnetbot
 if (logoStyle == "animated")
 {
-    var animInfoLines = new[]
-    {
-        $"\e[1;35m{Environment.UserName}\e[0m@\e[1;35m{Dns.GetHostName()}\e[0m",
-        new string('─', 40),
-        $"\e[1m.NET\e[0m: {GetDotnetVersion()}",
-        $"\e[1m.NET SDK\e[0m: {GetDotnetSdkVersion()}",
-        $"\e[1mRuntimes\e[0m: {CountDotnetRuntimes()}",
-        $"\e[1mSDKs\e[0m: {CountDotnetSdks()}",
-        "",
-        $"\e[1mOS\e[0m: {RuntimeInformation.OSDescription}",
-        $"\e[1mArch\e[0m: {RuntimeInformation.OSArchitecture}",
-        $"\e[1mCPU\e[0m: {Environment.ProcessorCount} cores",
-        $"\e[1mMemory\e[0m: {GetInBestUnit(totalMemoryBytes)}",
-    };
-
-    // Raw frames without Spectre markup (using ANSI codes directly)
     // Eyes: left, center, right - with shadow shifting based on "head turn"
     // Looking left: shadow on right side (light from left)
     string[] eyesLeft = [
-        "\e[35m              dNd\e[0m",
-        "\e[35m              dNd\e[0m",
-        "\e[35m          .dNNNNNN\e[0m\e[90md.\e[0m",
-        "\e[35m        dNNNNNNNNNN\e[0m\e[90mNNd\e[0m",
-        "\e[35m       dNNNNNNNNNNNN\e[0m\e[90mNNNd\e[0m",
-        "\e[35m      dNNNN\e[0m\e[37m.----------.\e[0m\e[90mNNNd\e[0m",
-        "\e[35m      dNNNN\e[0m\e[37m|()   ()   |\e[0m\e[90mNNNd\e[0m",
-        "\e[35m      dNNNN\e[0m\e[37m'----------'\e[0m\e[90mNNNd\e[0m",
-        "\e[35m        dNNNNd   d\e[0m\e[90mNNNNd\e[0m",
+        $"{Purple}              dNd{Reset}",
+        $"{Purple}              dNd{Reset}",
+        $"{Purple}          .dNNNNNN{Reset}{Grey}d.{Reset}",
+        $"{Purple}        dNNNNNNNNNN{Reset}{Grey}NNd{Reset}",
+        $"{Purple}       dNNNNNNNNNNNN{Reset}{Grey}NNNd{Reset}",
+        $"{Purple}      dNNNN{Reset}{White}.----------.{Reset}{Grey}NNNd{Reset}",
+        $"{Purple}      dNNNN{Reset}{White}|()   ()   |{Reset}{Grey}NNNd{Reset}",
+        $"{Purple}      dNNNN{Reset}{White}'----------'{Reset}{Grey}NNNd{Reset}",
+        $"{Purple}        dNNNNd   d{Reset}{Grey}NNNNd{Reset}",
     ];
     // Looking center: balanced lighting
     string[] eyesCenter = [
-        "\e[35m              dNd\e[0m",
-        "\e[35m              dNd\e[0m",
-        "\e[35m          .dNNNNNNd.\e[0m",
-        "\e[35m        dNNNNNNNNNNNNd\e[0m",
-        "\e[35m       dNNNNNNNNNNNNNNNd\e[0m",
-        "\e[35m      dNNN\e[0m\e[37m.-----------.\e[0m\e[35mNNNd\e[0m",
-        "\e[35m      dNNN\e[0m\e[37m|  ()   ()  |\e[0m\e[35mNNNd\e[0m",
-        "\e[35m      dNNN\e[0m\e[37m'-----------'\e[0m\e[35mNNNd\e[0m",
-        "\e[35m        dNNNNd    dNNNNd\e[0m",
+        $"{Purple}              dNd{Reset}",
+        $"{Purple}              dNd{Reset}",
+        $"{Purple}          .dNNNNNNd.{Reset}",
+        $"{Purple}        dNNNNNNNNNNNNd{Reset}",
+        $"{Purple}       dNNNNNNNNNNNNNNNd{Reset}",
+        $"{Purple}      dNNN{Reset}{White}.-----------.{Reset}{Purple}NNNd{Reset}",
+        $"{Purple}      dNNN{Reset}{White}|  ()   ()  |{Reset}{Purple}NNNd{Reset}",
+        $"{Purple}      dNNN{Reset}{White}'-----------'{Reset}{Purple}NNNd{Reset}",
+        $"{Purple}        dNNNNd    dNNNNd{Reset}",
     ];
     // Looking right: shadow on left side (light from right)
     string[] eyesRight = [
-        "\e[35m              dNd\e[0m",
-        "\e[35m              dNd\e[0m",
-        "\e[90m          .d\e[0m\e[35mNNNNNNd.\e[0m",
-        "\e[90m        dNN\e[0m\e[35mNNNNNNNNNNd\e[0m",
-        "\e[90m       dNNN\e[0m\e[35mNNNNNNNNNNNNd\e[0m",
-        "\e[90m      dNNN\e[0m\e[37m.----------.\e[0m\e[35mNNNNd\e[0m",
-        "\e[90m      dNNN\e[0m\e[37m|   ()   ()|\e[0m\e[35mNNNNd\e[0m",
-        "\e[90m      dNNN\e[0m\e[37m'----------'\e[0m\e[35mNNNNd\e[0m",
-        "\e[90m        dNNNN\e[0m\e[35md   dNNNNd\e[0m",
+        $"{Purple}              dNd{Reset}",
+        $"{Purple}              dNd{Reset}",
+        $"{Grey}          .d{Reset}{Purple}NNNNNNd.{Reset}",
+        $"{Grey}        dNN{Reset}{Purple}NNNNNNNNNNd{Reset}",
+        $"{Grey}       dNNN{Reset}{Purple}NNNNNNNNNNNNd{Reset}",
+        $"{Grey}      dNNN{Reset}{White}.----------.{Reset}{Purple}NNNNd{Reset}",
+        $"{Grey}      dNNN{Reset}{White}|   ()   ()|{Reset}{Purple}NNNNd{Reset}",
+        $"{Grey}      dNNN{Reset}{White}'----------'{Reset}{Purple}NNNNd{Reset}",
+        $"{Grey}        dNNNN{Reset}{Purple}d   dNNNNd{Reset}",
     ];
     // Badge: up = |.NET| then |    |, down = |    | then |.NET|
     string[] badgeUp = [
-        "\e[35m         dNd \e[0m\e[90m|.NET|\e[0m\e[35m dNd\e[0m",
-        "\e[35m         dNd \e[0m\e[90m|    |\e[0m\e[35m dNd\e[0m",
-        "\e[90m             '----'\e[0m",
+        $"{Purple}         dNd {Reset}{Grey}|.NET|{Reset}{Purple} dNd{Reset}",
+        $"{Purple}         dNd {Reset}{Grey}|    |{Reset}{Purple} dNd{Reset}",
+        $"{Grey}             '----'{Reset}",
     ];
     string[] badgeDown = [
-        "\e[35m         dNd \e[0m\e[90m|    |\e[0m\e[35m dNd\e[0m",
-        "\e[35m         dNd \e[0m\e[90m|.NET|\e[0m\e[35m dNd\e[0m",
-        "\e[90m             '----'\e[0m",
+        $"{Purple}         dNd {Reset}{Grey}|    |{Reset}{Purple} dNd{Reset}",
+        $"{Purple}         dNd {Reset}{Grey}|.NET|{Reset}{Purple} dNd{Reset}",
+        $"{Grey}             '----'{Reset}",
     ];
 
     // Eye positions and badge states
     string[][] eyePositions = [eyesLeft, eyesCenter, eyesRight];
-    string[][] badgeStates = [badgeUp, badgeDown];
 
     // Animation settings
     int bounceCycles = 4;  // number of up/down cycles per eye position
@@ -220,7 +204,7 @@ if (logoStyle == "animated")
                 var frameUp = eyes.Concat(badgeUp).ToArray();
                 for (int i = 0; i < frameUp.Length; i++)
                 {
-                    string info = i < animInfoLines.Length ? "  " + animInfoLines[i] : "";
+                    string info = i < infoLines.Count ? "  " + infoLines[i] : "";
                     Console.WriteLine($"\e[2K{frameUp[i]}\e[32G{info}");
                 }
                 Thread.Sleep(bounceDelayMs);
@@ -231,7 +215,7 @@ if (logoStyle == "animated")
                 var frameDown = eyes.Concat(badgeDown).ToArray();
                 for (int i = 0; i < frameDown.Length; i++)
                 {
-                    string info = i < animInfoLines.Length ? "  " + animInfoLines[i] : "";
+                    string info = i < infoLines.Count ? "  " + infoLines[i] : "";
                     Console.WriteLine($"\e[2K{frameDown[i]}\e[32G{info}");
                 }
 
@@ -252,7 +236,7 @@ if (logoStyle == "animated")
             var frameUp = eyesRight.Concat(badgeUp).ToArray();
             for (int i = 0; i < frameUp.Length; i++)
             {
-                string info = i < animInfoLines.Length ? "  " + animInfoLines[i] : "";
+                string info = i < infoLines.Count ? "  " + infoLines[i] : "";
                 Console.WriteLine($"\e[2K{frameUp[i]}\e[32G{info}");
             }
             Thread.Sleep(bounceDelayMs);
@@ -262,7 +246,7 @@ if (logoStyle == "animated")
             var frameDown = eyesRight.Concat(badgeDown).ToArray();
             for (int i = 0; i < frameDown.Length; i++)
             {
-                string info = i < animInfoLines.Length ? "  " + animInfoLines[i] : "";
+                string info = i < infoLines.Count ? "  " + infoLines[i] : "";
                 Console.WriteLine($"\e[2K{frameDown[i]}\e[32G{info}");
             }
         }
@@ -276,54 +260,18 @@ if (logoStyle == "animated")
     return 0;
 }
 
-var logo = logos.ContainsKey(logoStyle) ? logos[logoStyle] : logos["ascii"];
+// Static logo output
+var logoLines = logos.ContainsKey(logoStyle) ? logos[logoStyle] : logos["dotnetbot"];
 
-
-
-// Create info panel
-var infoLines = new List<string>
+Console.WriteLine();
+int maxLines = Math.Max(logoLines.Length, infoLines.Count);
+for (int i = 0; i < maxLines; i++)
 {
-    $"[bold purple]{Environment.UserName}[/]@[bold purple]{Dns.GetHostName()}[/]",
-    new string('─', 40),
-    $"[bold].NET[/]: {GetDotnetVersion()}",
-    $"[bold].NET SDK[/]: {GetDotnetSdkVersion()}",
-    $"[bold]Runtimes[/]: {CountDotnetRuntimes()}",
-    $"[bold]SDKs[/]: {CountDotnetSdks()}",
-    "",
-    $"[bold]OS[/]: {RuntimeInformation.OSDescription}",
-    $"[bold]Arch[/]: {RuntimeInformation.OSArchitecture}",
-    $"[bold]CPU[/]: {Environment.ProcessorCount} cores",
-    $"[bold]Memory[/]: {GetInBestUnit(totalMemoryBytes)}",
-};
-
-// Add cgroup info if available
-if (OperatingSystem.IsLinux() && TryGetMemoryLimits(out long memoryLimit, out long currentMemory, out string? limitPath))
-{
-    infoLines.Add($"[bold]Container[/]: Yes");
-    infoLines.Add($"[bold]Memory Limit[/]: {GetInBestUnit(memoryLimit)}");
-    infoLines.Add($"[bold]Memory Used[/]: {GetInBestUnit(currentMemory)}");
-
-    // Memory bar
-    var percentage = (double)currentMemory / memoryLimit * 100;
-    var barLength = 20;
-    var filled = (int)(percentage / 100 * barLength);
-    var bar = new string('█', filled) + new string('░', barLength - filled);
-    var color = percentage > 80 ? "red" : percentage > 60 ? "yellow" : "green";
-    infoLines.Add($"[bold]Usage[/]: [{color}]{bar}[/] {percentage:F1}%");
+    string logoLine = i < logoLines.Length ? logoLines[i] : "";
+    string info = i < infoLines.Count ? "  " + infoLines[i] : "";
+    Console.WriteLine($"{logoLine}\e[32G{info}");
 }
-
-// Create layout
-var table = new Table()
-    .Border(TableBorder.None)
-    .HideHeaders()
-    .AddColumn(new TableColumn("").PadRight(2))
-    .AddColumn(new TableColumn(""));
-
-table.AddRow(logo, string.Join("\n", infoLines));
-
-AnsiConsole.WriteLine();
-AnsiConsole.Write(table);
-AnsiConsole.WriteLine();
+Console.WriteLine();
 
 return 0;
 

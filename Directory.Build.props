@@ -1,0 +1,8 @@
+<Project>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\"/>
+  </ItemGroup>
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);NU5119</NoWarn>
+  </PropertyGroup>
+</Project>
