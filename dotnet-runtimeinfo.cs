@@ -1,6 +1,6 @@
 #!/usr/bin/env dotnet
 #:package Microsoft.SourceLink.GitHub@*
-#:property Authors=Rich Lander
+#:property Authors=Richard Lander
 #:property Description=A neofetch-like tool for .NET metrics
 #:property PackageId=dotnet-runtimeinfo
 #:property PackageLicenseExpression=MIT
