@@ -63,7 +63,7 @@ In containerized environments, additional cgroup information is displayed includ
 ## Implementation
 
 This is a .NET 10 single-file app using:
-- `Spectre.Console` for colored output and layout
+- ANSI escape codes for colored output
 - `System.Runtime.InteropServices.RuntimeInformation` for platform details
 - `System.Environment` for system information
 - CGroup detection (v1 & v2) for containerized environments
