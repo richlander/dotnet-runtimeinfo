@@ -67,4 +67,4 @@ This is a .NET 10 single-file app using:
 - `System.Runtime.InteropServices.RuntimeInformation` for platform details
 - `System.Environment` for system information
 - CGroup detection (v1 & v2) for containerized environments
-- Memory usage visualization with progress bars
+- Memory usage visualization with progress bars (in containers)
