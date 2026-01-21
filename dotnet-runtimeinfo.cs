@@ -12,26 +12,59 @@ using Spectre.Console;
 const double Mebi = 1024 * 1024;
 const double Gibi = Mebi * 1024;
 
+// Parse arguments
+var cmdArgs = Environment.GetCommandLineArgs().Skip(1).ToArray();
+var logoStyle = cmdArgs.Length > 0 ? cmdArgs[0] : "dotnet";
+
 var gcInfo = GC.GetGCMemoryInfo();
 var totalMemoryBytes = gcInfo.TotalAvailableMemoryBytes;
 
-// Create ASCII art
-var logo = """
-       [purple]▄▄[/]
-      [purple]▀▀▀▀[/]
-     [purple]██████[/]
-    [purple]████████[/]
-   [purple]██████████[/]
-  [purple]██[/][white]████████[/][purple]██[/]
- [purple]███[/][white]██[/]  [purple]██[/]  [white]██[/][purple]███[/]
-  [purple]█[/][white]██[/]   [purple]██[/]   [white]██[/][purple]█[/]
-   [white]██[/]   [purple]██[/]   [white]██[/]
-    [white]██[/]  [purple]██[/]  [white]██[/]
-     [white]███████[/]
-      [white]█████[/]
-       [white]███[/]
-       [white]███[/]
-""";
+// Logo options
+var logos = new Dictionary<string, string>
+{
+    ["dotnet"] = """
+        [purple]     _   _ _____ _____[/]
+        [purple] _  | \\ | | ____||_   _|[/]
+        [purple](_) |  \\| |  _|    | |  [/]
+        [purple] _  | |\\  | |___   | |  [/]
+        [purple](_) |_| \\_||_____|  |_|  [/]
+        """,
+    
+    ["simple"] = """
+        [purple]  ▄▄▄  ██▄  █ ████ ███▄[/]
+        [purple] █   █ █ ██ █ █      █  [/]
+        [purple] █   █ █  ███ ███    █  [/]
+        [purple] █▄▄▄█ █   ██ █      █  [/]
+        [purple]  ███  █    █ ████   █  [/]
+        """,
+    
+    ["block"] = """
+        [purple] ██████   ███  ██ ██████ ████████[/]
+        [purple]▐█    █▌ ████  ██ ██        ██   [/]
+        [purple]▐█    █▌ ██ ██ ██ ██████    ██   [/]
+        [purple]▐█    █▌ ██  ████ ██        ██   [/]
+        [purple] ██████  ██   ███ ██████    ██   [/]
+        """,
+    
+    ["text"] = """
+        [purple] ·NET[/]
+        """
+};
+
+// Select logo or show help
+if (logoStyle == "help" || logoStyle == "--help" || logoStyle == "-h")
+{
+    AnsiConsole.MarkupLine("[bold]Usage:[/] dotnet-runtimeinfo [logo-style]");
+    AnsiConsole.MarkupLine("");
+    AnsiConsole.MarkupLine("[bold]Logo styles:[/]");
+    AnsiConsole.MarkupLine("  dotnet  - .NET logo with ASCII art (default)");
+    AnsiConsole.MarkupLine("  simple  - Simple block style");
+    AnsiConsole.MarkupLine("  block   - Bold block style");
+    AnsiConsole.MarkupLine("  text    - Minimal text only");
+    return 0;
+}
+
+var logo = logos.ContainsKey(logoStyle) ? logos[logoStyle] : logos["dotnet"];
 
 
 
