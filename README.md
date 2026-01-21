@@ -1,6 +1,6 @@
 # dotnet-runtimeinfo
 
-A neofetch-style .NET tool that displays runtime, OS, and hardware environment information with customizable ASCII art logos.
+A [neofetch](https://github.com/dylanaraps/neofetch)-style .NET tool that displays runtime, OS, and hardware environment information with customizable ASCII art logos.
 
 ## Overview
 
@@ -12,7 +12,7 @@ Install from NuGet:
 
 ```bash
 dotnet tool install -g dotnet-runtimeinfo
-dotnet-runtimeinfo
+dotnet runtimeinfo
 ```
 
 > Note: You may need to open a new terminal window after first installation.
@@ -28,15 +28,20 @@ dotnet tool uninstall -g dotnet-runtimeinfo
 Run with default logo:
 
 ```console
-$ dotnet-runtimeinfo
+$ dotnet runtimeinfo
 
-     _   _ _____ _____      rich@hostname
- _  | \ | | ____||_   _|   ────────────────────────────────
-(_) |  \| |  _|    | |     OS: macOS 26.2.0
- _  | |\ | | |___   | |     Arch: Arm64
-(_) |_| \_||_____|  |_|    .NET: .NET 10.0.2
-                            CPU: 12 cores
-                            Memory: 24.0 GiB
+             dNd             rich@hostname
+             dNd             ────────────────────────────────
+         .dNNNNNNd.          .NET: 10.0.2
+       dNNNNNNNNNNNNd        .NET SDK: 10.0.102
+      dNNNNNNNNNNNNNNNd      Runtimes: 20
+     dNNN.----------.NNNd    SDKs: 10
+     dNNN|   ()   ()|NNNd
+     dNNN'----------'NNNd    OS: macOS 26.2.0
+       dNNNNd    dNNNNd      Arch: Arm64
+        dNd |.NET| dNd       CPU: 12 cores
+        dNd |    | dNd       Memory: 24.0 GiB
+            '----'
 ```
 
 ### Logo Styles
@@ -44,11 +49,11 @@ $ dotnet-runtimeinfo
 Choose from multiple logo styles:
 
 ```bash
-dotnet-runtimeinfo          # Default .NET ASCII logo
-dotnet-runtimeinfo simple   # Simple block style
-dotnet-runtimeinfo block    # Bold block style  
-dotnet-runtimeinfo text     # Minimal text only
-dotnet-runtimeinfo help     # Show all options
+dotnet runtimeinfo           # .NET Bot mascot (default)
+dotnet runtimeinfo animated  # .NET Bot with eye animation
+dotnet runtimeinfo ascii     # .NET logo with ASCII art
+dotnet runtimeinfo blocktext # Block style .NET logo
+dotnet runtimeinfo help      # Show all options
 ```
 
 ### Container Support

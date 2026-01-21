@@ -15,7 +15,7 @@ const double Gibi = Mebi * 1024;
 
 // Parse arguments
 var cmdArgs = Environment.GetCommandLineArgs().Skip(1).ToArray();
-var logoStyle = cmdArgs.Length > 0 ? cmdArgs[0] : "ascii";
+var logoStyle = cmdArgs.Length > 0 ? cmdArgs[0] : "dotnetbot";
 
 var gcInfo = GC.GetGCMemoryInfo();
 var totalMemoryBytes = gcInfo.TotalAvailableMemoryBytes;
@@ -110,10 +110,10 @@ if (logoStyle == "help" || logoStyle == "--help" || logoStyle == "-h")
     AnsiConsole.MarkupLine("[bold]Usage:[/] dotnet-runtimeinfo [[logo-style]]");
     AnsiConsole.MarkupLine("");
     AnsiConsole.MarkupLine("[bold]Logo styles:[/]");
-    AnsiConsole.MarkupLine("  ascii     - .NET logo with ASCII art (default)");
-    AnsiConsole.MarkupLine("  blocktext - Block style .NET logo");
-    AnsiConsole.MarkupLine("  dotnetbot - .NET Bot mascot");
+    AnsiConsole.MarkupLine("  dotnetbot - .NET Bot mascot (default)");
     AnsiConsole.MarkupLine("  animated  - .NET Bot with eye animation");
+    AnsiConsole.MarkupLine("  ascii     - .NET logo with ASCII art");
+    AnsiConsole.MarkupLine("  blocktext - Block style .NET logo");
     return 0;
 }
 
@@ -285,9 +285,13 @@ var infoLines = new List<string>
 {
     $"[bold purple]{Environment.UserName}[/]@[bold purple]{Dns.GetHostName()}[/]",
     new string('─', 40),
+    $"[bold].NET[/]: {GetDotnetVersion()}",
+    $"[bold].NET SDK[/]: {GetDotnetSdkVersion()}",
+    $"[bold]Runtimes[/]: {CountDotnetRuntimes()}",
+    $"[bold]SDKs[/]: {CountDotnetSdks()}",
+    "",
     $"[bold]OS[/]: {RuntimeInformation.OSDescription}",
     $"[bold]Arch[/]: {RuntimeInformation.OSArchitecture}",
-    $"[bold].NET[/]: {RuntimeInformation.FrameworkDescription}",
     $"[bold]CPU[/]: {Environment.ProcessorCount} cores",
     $"[bold]Memory[/]: {GetInBestUnit(totalMemoryBytes)}",
 };
