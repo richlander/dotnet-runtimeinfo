@@ -1,17 +1,3 @@
-#!/usr/bin/env dotnet
-#:package Microsoft.SourceLink.GitHub@*
-#:property Authors=Richard Lander
-#:property Description=A neofetch-like tool for .NET metrics
-#:property PackageId=dotnet-runtimeinfo
-#:property PackageLicenseExpression=MIT
-#:property PackageReadmeFile=README.md
-#:property PublishRepositoryUrl=true
-#:property PackAsTool=true
-#:property RollForward=LatestMajor
-#:property TargetFramework=net10.0
-#:property ToolCommandName=dotnet-runtimeinfo
-#:property VersionPrefix=2.0.0
-
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
