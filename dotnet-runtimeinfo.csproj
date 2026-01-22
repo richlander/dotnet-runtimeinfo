@@ -12,7 +12,7 @@
     <Authors>Richard Lander</Authors>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>dotnet-runtimeinfo</ToolCommandName>
-    <VersionPrefix>2.0.1</VersionPrefix>
+    <VersionPrefix>2.0.2</VersionPrefix>
     <PackageId>dotnet-runtimeinfo</PackageId>
     <Description>A neofetch-like tool for .NET metrics</Description>
   </PropertyGroup>
