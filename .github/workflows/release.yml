@@ -1,0 +1,246 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'CI run ID identifying the commit to publish (used only to resolve the SHA; all packages are built fresh in this workflow)'
+        required: true
+      confirm:
+        description: 'Type "publish" to confirm NuGet release'
+        required: true
+
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  # Resolve the exact commit to publish from the given CI run, so every package
+  # built below (Windows/macOS/Linux RIDs + portable) comes from one commit.
+  resolve:
+    runs-on: ubuntu-26.04
+    if: github.event.inputs.confirm == 'publish'
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - name: Resolve CI run commit
+        id: sha
+        run: |
+          SHA=$(gh run view ${{ github.event.inputs.run_id }} \
+            --repo ${{ github.repository }} --json headSha -q .headSha)
+          echo "Resolved CI run ${{ github.event.inputs.run_id }} -> $SHA"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Basic gate: the tool must build and run before we publish anything.
+  validate:
+    needs: resolve
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '11.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Build managed tool
+        run: dotnet build -c Release -p:PublishAot=false
+
+      - name: Smoke-run tool
+        run: dotnet run -c Release -p:PublishAot=false
+
+  # Build the RID-specific Native AOT packages (net11.0). Windows/macOS build on
+  # their native runners; the Linux RIDs build here too. These run only at
+  # publish time so per-PR/per-merge CI never builds or uploads release artifacts.
+  build-native:
+    needs: [resolve, validate]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows-latest
+          - rid: win-arm64
+            os: windows-latest
+          - rid: osx-arm64
+            os: macos-latest
+          - rid: linux-x64
+            os: ubuntu-26.04
+          - rid: linux-arm64
+            os: ubuntu-26.04-arm
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '11.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Pack RID-specific package
+        run: dotnet pack -c Release -r ${{ matrix.rid }} -p:OfficialAotBuild=true
+
+      - name: Upload RID package
+        uses: actions/upload-artifact@v7
+        with:
+          name: package-${{ matrix.rid }}
+          path: artifacts/package/release/*.nupkg
+          if-no-files-found: error
+
+  # Build the RID-neutral packages: the TFM-agnostic pointer (head, tools/any/any)
+  # and the non-AOT "any" fallback (net10.0). Built here at publish time so CI
+  # never produces release artifacts.
+  build-portable:
+    needs: [resolve, validate]
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '11.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Pack pointer (head) package
+        # SelfContained=true forces the pack TFM segment to 'any', so the pointer
+        # manifest lands at tools/any/any/DotnetToolSettings.xml. The pointer
+        # carries no implementation, so SelfContained pulls in no runtime.
+        run: dotnet pack -c Release -p:SelfContained=true -p:OfficialBuild=true
+
+      - name: Upload pointer package
+        uses: actions/upload-artifact@v7
+        with:
+          name: package-pointer
+          path: artifacts/package/release/*.nupkg
+          if-no-files-found: error
+
+      - name: Pack any (non-AOT) package
+        # TFM is pinned to net10.0 (Directory.Build.props) so this fallback stays
+        # installable on the LTS runtime.
+        run: dotnet pack -c Release -r any -p:PublishAot=false -p:OfficialBuild=true
+
+      - name: Upload any package
+        uses: actions/upload-artifact@v7
+        with:
+          name: package-any
+          path: artifacts/package/release/*.nupkg
+          if-no-files-found: error
+
+  publish:
+    needs: [resolve, validate, build-native, build-portable]
+    runs-on: ubuntu-26.04
+    if: github.event.inputs.confirm == 'publish'
+    environment: nuget
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Download all packages built in this run
+        uses: actions/download-artifact@v8
+        with:
+          path: packages
+          pattern: package-*
+          merge-multiple: true
+
+      - name: List packages
+        run: ls -la packages/
+
+      # Reach guard: the non-AOT "any" fallback must target the LTS floor (net10.0)
+      # so it installs on machines without the latest runtime, and the pointer must
+      # stay TFM-agnostic (tools/any/any). Fail the publish before pushing if either
+      # regresses.
+      - name: Validate reach packaging
+        run: |
+          set -euo pipefail
+
+          settings_path() {
+            unzip -l "$1" | grep -oE 'tools/[^[:space:]]*DotnetToolSettings.xml' | head -1
+          }
+
+          any_pkg=$(ls packages/dotnet-runtimeinfo.any.*.nupkg)
+          any_path=$(settings_path "$any_pkg")
+          echo "any package:     $any_pkg -> $any_path"
+          case "$any_path" in
+            tools/net10.0/*) echo "OK: any package targets net10.0 (LTS reach floor)";;
+            *) echo "ERROR: any package must target net10.0 for reach, found: $any_path"; exit 1;;
+          esac
+
+          pointer_pkg=$(ls packages/dotnet-runtimeinfo.[0-9]*.nupkg)
+          pointer_path=$(settings_path "$pointer_pkg")
+          echo "pointer package: $pointer_pkg -> $pointer_path"
+          case "$pointer_path" in
+            tools/any/any/*) echo "OK: pointer is TFM-agnostic (tools/any/any)";;
+            *) echo "ERROR: pointer must be TFM-agnostic (tools/any/any), found: $pointer_path"; exit 1;;
+          esac
+        shell: bash
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '11.0.x'
+          dotnet-quality: 'preview'
+
+      - name: NuGet login (OIDC → temp API key)
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      # Publish RID-specific packages first, then the any package, then the pointer
+      # package last (the pointer references all the RID-specific packages).
+      - name: Publish packages
+        run: |
+          # 1. RID-specific AOT packages first
+          for pkg in packages/dotnet-runtimeinfo.win-*.nupkg packages/dotnet-runtimeinfo.linux-*.nupkg packages/dotnet-runtimeinfo.osx-*.nupkg; do
+            if [[ -f "$pkg" ]]; then
+              echo "Publishing $pkg"
+              dotnet nuget push "$pkg" --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+            fi
+          done
+
+          # 2. any (non-AOT) fallback
+          for pkg in packages/dotnet-runtimeinfo.any.*.nupkg; do
+            if [[ -f "$pkg" ]]; then
+              echo "Publishing any package: $pkg"
+              dotnet nuget push "$pkg" --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+            fi
+          done
+
+          # 3. pointer (head) package last
+          for pkg in packages/dotnet-runtimeinfo.[0-9]*.nupkg; do
+            if [[ -f "$pkg" ]]; then
+              echo "Publishing pointer package: $pkg"
+              dotnet nuget push "$pkg" --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+            fi
+          done
+        shell: bash
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(grep -oP '(?<=<VersionPrefix>)[^<]+' dotnet-runtimeinfo.csproj)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          files: packages/*.nupkg
+          generate_release_notes: true

@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+# Cancel superseded PR runs so only the latest commit of a PR consumes a run.
+# Pushes to main are not cancelled (release.yml resolves a commit from a CI run).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '11.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      # Build/run the managed tool (PublishAot=false) so PR CI stays cheap and
+      # doesn't invoke the AOT toolchain. The RID-specific AOT packages are only
+      # built at publish time (release.yml).
+      - name: Build managed tool
+        run: dotnet build -c Release -p:PublishAot=false
+
+      - name: Smoke-run tool
+        run: dotnet run -c Release -p:PublishAot=false
