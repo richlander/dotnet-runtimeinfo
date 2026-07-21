@@ -3,6 +3,26 @@
   <PropertyGroup>
     <UseArtifactsOutput>true</UseArtifactsOutput>
     <IncludeProjectNameInArtifactsPaths>false</IncludeProjectNameInArtifactsPaths>
+    <IsAotCompatible>true</IsAotCompatible>
+
+    <!--
+      The official non-AOT "any" fallback package targets the LTS floor (net10.0) so
+      it installs and runs on machines that only have the LTS runtime. Everything else
+      (dev, and the RID-specific Native AOT packages) uses the latest runtime (net11.0)
+      so daily development dogfoods it. The "any" package is the only managed-runtime
+      artifact we ship, so it is the only one that needs the conservative floor. Keyed
+      on OfficialBuild + non-AOT (rather than a CLI override) so an accidental
+      `dotnet pack -r any` can't silently ship a net11.0 fallback.
+    -->
+    <DefaultTargetFramework Condition="'$(DefaultTargetFramework)' == '' and '$(OfficialBuild)' == 'true' and '$(PublishAot)' == 'false'">net10.0</DefaultTargetFramework>
+    <DefaultTargetFramework Condition="'$(DefaultTargetFramework)' == ''">net$(NETCoreAppMaximumVersion)</DefaultTargetFramework>
+  </PropertyGroup>
+
+  <!-- Publish-time convenience: `-p:OfficialAotBuild=true` turns on the official
+       Native AOT build (deterministic + AOT) in one switch. -->
+  <PropertyGroup Condition="'$(OfficialAotBuild)' == 'true'">
+    <OfficialBuild>true</OfficialBuild>
+    <PublishAot>true</PublishAot>
   </PropertyGroup>
 
 </Project>
