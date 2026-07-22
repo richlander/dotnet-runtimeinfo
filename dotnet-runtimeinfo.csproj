@@ -19,7 +19,7 @@
     <Authors>Richard Lander</Authors>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>dotnet-runtimeinfo</ToolCommandName>
-    <VersionPrefix>3.0.0</VersionPrefix>
+    <VersionPrefix>3.0.1</VersionPrefix>
     <PackageId>dotnet-runtimeinfo</PackageId>
     <Description>A neofetch-like tool for .NET metrics</Description>
     <!-- RID-specific tool packaging: Native AOT for common platforms, CoreCLR fallback for others -->
