@@ -19,12 +19,15 @@
     <Authors>Richard Lander</Authors>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>dotnet-runtimeinfo</ToolCommandName>
-    <VersionPrefix>3.0.0</VersionPrefix>
+    <VersionPrefix>3.0.1</VersionPrefix>
     <PackageId>dotnet-runtimeinfo</PackageId>
     <Description>A neofetch-like tool for .NET metrics</Description>
     <!-- RID-specific tool packaging: Native AOT for common platforms, CoreCLR fallback for others -->
     <ToolPackageRuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-arm64;any</ToolPackageRuntimeIdentifiers>
     <PublishAot>true</PublishAot>
+    <!-- Keep debug symbols (.pdb/.dbg and the macOS .dSYM bundle) out of the
+         published tool package. -->
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(OfficialBuild)' == 'true'">
@@ -40,13 +43,5 @@
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
-
-  <Target Name="StripSymbolsFromPublishOutput" AfterTargets="Publish" Condition="'$(PublishAot)' == 'true' and '$(PackAsTool)' == 'true'">
-    <ItemGroup>
-      <PublishSymbolFiles Include="$(PublishDir)**/*.pdb" />
-      <PublishSymbolFiles Include="$(PublishDir)**/*.dbg" />
-    </ItemGroup>
-    <Delete Files="@(PublishSymbolFiles)" />
-  </Target>
 
 </Project>
