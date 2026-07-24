@@ -1,0 +1,8 @@
+{
+  "exe": "dotnet-runtimeinfo",
+  "project": "dotnet-runtimeinfo.csproj",
+  "update": {
+    "type": "nuget",
+    "package": "dotnet-runtimeinfo"
+  }
+}
