@@ -59,8 +59,8 @@ jobs:
         run: dotnet run -c Release -p:PublishAot=false
 
   # Build the RID-specific Native AOT packages (net11.0). Windows/macOS build on
-  # their native runners; the Linux RIDs build here too. These run only at
-  # publish time so per-PR/per-merge CI never builds or uploads release artifacts.
+  # their native runners. Linux packages use cross images and the portable glibc
+  # sysroots. These run only at publish time so CI never publishes release artifacts.
   build-native:
     needs: [resolve, validate]
     strategy:
@@ -73,10 +73,6 @@ jobs:
             os: windows-latest
           - rid: osx-arm64
             os: macos-latest
-          - rid: linux-x64
-            os: ubuntu-26.04
-          - rid: linux-arm64
-            os: ubuntu-26.04-arm
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
@@ -91,6 +87,50 @@ jobs:
 
       - name: Pack RID-specific package
         run: dotnet pack -c Release -r ${{ matrix.rid }} -p:OfficialAotBuild=true
+
+      - name: Upload RID package
+        uses: actions/upload-artifact@v7
+        with:
+          name: package-${{ matrix.rid }}
+          path: artifacts/package/release/*.nupkg
+          if-no-files-found: error
+
+  build-linux-native:
+    needs: [resolve, validate]
+    runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            image: azurelinux-3.0-net11.0-cross-amd64
+            rootfs: /crossrootfs/x64
+          - rid: linux-arm64
+            image: azurelinux-3.0-net11.0-cross-arm64
+            rootfs: /crossrootfs/arm64
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '11.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Pack RID-specific Linux package
+        run: |
+          sdk_dir="$(dirname "$(readlink -f "$(command -v dotnet)")")"
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/src" \
+            -v "$sdk_dir:/host-dotnet:ro" \
+            -w /src \
+            -e DOTNET_ROOT=/host-dotnet \
+            -e PATH="/host-dotnet:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+            -e ROOTFS_DIR=${{ matrix.rootfs }} \
+            mcr.microsoft.com/dotnet-buildtools/prereqs:${{ matrix.image }} \
+            sh -c 'git config --global --add safe.directory /src && dotnet pack -c Release -r ${{ matrix.rid }} -p:OfficialAotBuild=true -p:SysRoot="$ROOTFS_DIR" -p:LinkerFlavor=lld'
 
       - name: Upload RID package
         uses: actions/upload-artifact@v7
@@ -142,7 +182,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [resolve, validate, build-native, build-portable]
+    needs: [resolve, validate, build-native, build-linux-native, build-portable]
     runs-on: ubuntu-26.04
     if: github.event.inputs.confirm == 'publish'
     environment: nuget
